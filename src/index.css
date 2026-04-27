@@ -1,0 +1,240 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family:
+    "Rubik",
+    "Arial Rounded MT Bold",
+    "Segoe UI Rounded",
+    "Nunito",
+    "Trebuchet MS",
+    "Segoe UI",
+    sans-serif;
+  font-weight: 800;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  color: #0f172a;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(250, 204, 21, 0.24), transparent 28%),
+    radial-gradient(circle at 88% 10%, rgba(59, 130, 246, 0.2), transparent 26%),
+    radial-gradient(circle at 82% 82%, rgba(255, 77, 109, 0.16), transparent 28%),
+    linear-gradient(180deg, #f8fafc 0%, #eef6ff 100%);
+}
+
+.container-main {
+  @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+}
+
+.card {
+  @apply rounded-3xl bg-white shadow-soft transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl;
+}
+
+.reward-chip {
+  @apply inline-flex items-center gap-2 rounded-full bg-brand-yellow/30 px-4 py-2 text-sm font-black text-amber-800;
+}
+
+.xp-chip {
+  @apply inline-flex items-center rounded-full bg-gradient-to-r from-brand-yellow to-amber-300 px-3 py-1 text-xs font-black text-amber-900 shadow;
+}
+
+.fun-title {
+  @apply text-2xl font-black tracking-tight sm:text-3xl;
+}
+
+.bounce-soft {
+  animation: bounce-soft 2s ease-in-out infinite;
+}
+
+.page-enter {
+  animation: page-slide-in 320ms ease-out both;
+}
+
+.page-exit {
+  animation: page-slide-out 240ms ease-in both;
+}
+
+@keyframes page-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes page-slide-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+}
+
+@keyframes bounce-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.calligraphy-grid {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 132px;
+  height: 132px;
+  border-radius: 16px;
+  border: 2px solid rgba(15, 23, 42, 0.22);
+  background-color: #ffffff;
+  overflow: hidden;
+}
+
+.calligraphy-grid::before,
+.calligraphy-grid::after {
+  content: "";
+  position: absolute;
+  background: transparent;
+}
+
+.calligraphy-grid::before {
+  width: 0;
+  height: 100%;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  border-left: 2px dashed rgba(15, 23, 42, 0.28);
+}
+
+.calligraphy-grid::after {
+  width: 100%;
+  height: 0;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  border-top: 2px dashed rgba(15, 23, 42, 0.28);
+}
+
+.calligraphy-grid__diagonal {
+  position: absolute;
+  width: 170px;
+  border-top: 2px dashed rgba(15, 23, 42, 0.25);
+}
+
+.calligraphy-grid__diagonal--left {
+  transform: rotate(45deg);
+}
+
+.calligraphy-grid__diagonal--right {
+  transform: rotate(-45deg);
+}
+
+.calligraphy-grid p {
+  position: relative;
+  z-index: 1;
+  font-family: "STKaiti", "KaiTi", "Kaiti SC", "DFKai-SB", serif;
+  font-weight: 700;
+  line-height: 1;
+  transform: translateY(-5px);
+}
+
+/* DailyCheckIn: плоский «комбо-блок» → классический «выдавленный» 3D-кнопка (как bootstrapmb.com/item/6655) */
+.checkin-perspective {
+  perspective: 1000px;
+}
+
+.checkin-combine {
+  border-radius: 1rem;
+  overflow: hidden;
+  background: #fdf2f8;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    filter 0.2s ease,
+    border-color 0.45s ease;
+  transform-style: preserve-3d;
+  will-change: transform, box-shadow;
+}
+
+.checkin-grid--flat {
+  transform: translateY(0);
+  box-shadow: none;
+  border: 2px solid #f9a8d4;
+}
+
+/* Стерео-кнопка (розовая): «толстое» нижнее ребро + :active / класс нажатия */
+.checkin-grid--3d {
+  cursor: pointer;
+  border: 1px solid #be185d;
+  background: linear-gradient(180deg, #fbcfe8 0%, #f472b6 38%, #ec4899 100%);
+  box-shadow:
+    0 8px 0 #9d174d,
+    0 14px 28px rgba(157, 23, 77, 0.35);
+  transform: translateY(-2px);
+}
+
+.checkin-grid--3d:hover {
+  filter: brightness(1.03);
+}
+
+.checkin-grid--3d:active,
+.checkin-grid--3d.checkin-grid--pressed {
+  box-shadow:
+    0 3px 0 #9d174d,
+    0 6px 14px rgba(157, 23, 77, 0.28);
+  transform: translateY(5px);
+  filter: brightness(0.98);
+}
+
+.checkin-grid--3d:focus-visible {
+  outline: 3px solid #fce7f3;
+  outline-offset: 3px;
+}
+
+.checkin-grid--3d .grid {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.checkin-cell--empty {
+  border: 1px solid #f9a8d4;
+  background: #fce7f3;
+  color: transparent;
+  box-shadow: none;
+  transition: background-color 0.28s ease, border-color 0.28s ease, color 0.2s ease;
+}
+
+.checkin-cell--filled {
+  border: 1px solid #be185d;
+  background: #db2777;
+  color: #fdf2f8;
+  box-shadow: none;
+  animation: checkin-cell-in 0.35s ease-out both;
+}
+
+@keyframes checkin-cell-in {
+  from {
+    transform: scale(0.92);
+    opacity: 0.65;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Якорь награды: слой только над сеткой чек-ина, без fixed на весь экран */
+.checkin-reward-anchor {
+  min-height: 0;
+}

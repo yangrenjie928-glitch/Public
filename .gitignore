@@ -1,0 +1,8 @@
+node_modules
+.env
+.env.local
+.env.*
+dist
+backend/node_modules
+node.exe
+node-*.msi
