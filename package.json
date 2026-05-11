@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "deploy:vm": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-vm.ps1",
     "start:payments-api": "node server/payments-api.mjs"
   },
   "dependencies": {
