@@ -8,3 +8,4 @@ node.exe
 node-*.msi
 .vercel
 supabase/.temp/
+deployment.env
