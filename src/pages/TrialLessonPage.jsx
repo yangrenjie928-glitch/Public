@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
 import Button from "../components/Button";
 import Card from "../components/Card";
 
@@ -13,6 +14,7 @@ const words = [
 const rewards = ["+10 слов 🎉", "+100 💰", "+20 XP ⚡", "+1 бонус 📘"];
 
 function TrialLessonPage() {
+  const navigate = useNavigate();
   const [showExitPopup, setShowExitPopup] = useState(false);
   const [floatReward, setFloatReward] = useState(null);
 
@@ -39,6 +41,36 @@ function TrialLessonPage() {
     { id: "vk", label: "📱 VK", href: "https://vk.com", style: "from-blue-600 to-indigo-600" },
     { id: "wa", label: "💬 WhatsApp", href: "https://wa.me", style: "from-emerald-500 to-green-500" },
   ];
+
+  const exitPopup =
+    showExitPopup && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/55 p-4">
+            <div className="animate-pop w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl">
+              <p className="text-3xl font-black text-rose-500">Подожди! 😱</p>
+              <p className="mb-5 mt-3 font-bold text-slate-700">Забери бесплатный урок и бонус 🎁</p>
+              <a
+                href="#join-group"
+                className="block rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 px-4 py-3 text-lg font-black text-white transition hover:scale-105 active:scale-[0.97]"
+                onClick={() => {
+                  setShowExitPopup(false);
+                  triggerReward();
+                }}
+              >
+                👉 Войти в группу
+              </a>
+              <button
+                type="button"
+                className="mt-3 text-sm font-bold text-slate-500 underline"
+                onClick={() => setShowExitPopup(false)}
+              >
+                Не сейчас
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
     <div className="relative space-y-8 pb-28">
@@ -164,41 +196,20 @@ function TrialLessonPage() {
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
         <div className="container-main">
-          <a
-            href="#join-group"
-            className="bounce-soft block rounded-2xl bg-gradient-to-r from-orange-400 to-rose-500 px-6 py-4 text-center text-xl font-black text-white shadow-2xl transition hover:scale-105 active:scale-[0.97]"
-            onClick={triggerReward}
+          <button
+            type="button"
+            className="bounce-soft w-full rounded-2xl bg-gradient-to-r from-orange-400 to-rose-500 px-6 py-4 text-xl font-black text-white shadow-2xl transition hover:scale-105 active:scale-[0.97]"
+            onClick={() => {
+              triggerReward();
+              navigate("/funnel/group-success");
+            }}
           >
             🚀 Начать бесплатно
-          </a>
+          </button>
         </div>
       </div>
 
-      {showExitPopup ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/55 p-4">
-          <div className="animate-pop w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl">
-            <p className="text-3xl font-black text-rose-500">Подожди! 😱</p>
-            <p className="mb-5 mt-3 font-bold text-slate-700">Забери бесплатный урок и бонус 🎁</p>
-            <a
-              href="#join-group"
-              className="block rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 px-4 py-3 text-lg font-black text-white transition hover:scale-105 active:scale-[0.97]"
-              onClick={() => {
-                setShowExitPopup(false);
-                triggerReward();
-              }}
-            >
-              👉 Войти в группу
-            </a>
-            <button
-              type="button"
-              className="mt-3 text-sm font-bold text-slate-500 underline"
-              onClick={() => setShowExitPopup(false)}
-            >
-              Не сейчас
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {exitPopup}
 
       <div className="pt-4 text-center text-sm font-bold text-slate-500">
         <Link to="/learning" className="hover:underline">

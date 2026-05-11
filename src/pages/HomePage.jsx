@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import Card from "../components/Card";
 import campaignCover from "../assets/events/anime-spring.svg";
+import { useAuth } from "../context/AuthContext";
+import { joinRandomMotivationGroup } from "../services/groupMembership";
 
 const features = [
   { icon: "🎮", text: "Игровое обучение" },
   { icon: "⚡", text: "Быстрый результат" },
-  { icon: "📱", text: "Учись везде" },
+  { icon: "⚔️", text: "PK-баттл" },
   { icon: "👥", text: "Мини-группы" },
 ];
 
@@ -20,7 +22,52 @@ const campaign = {
 
 function HomePage() {
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  const viewerId = user?.id ?? profile?.id ?? null;
+  const [miniJoining, setMiniJoining] = useState(false);
+  const [miniGroupError, setMiniGroupError] = useState("");
   const [played, setPlayed] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const speechRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  const handleListenWord = () => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window) || typeof window.SpeechSynthesisUtterance === "undefined") {
+      setPlayed(true);
+      setTimeout(() => setPlayed(false), 900);
+      return;
+    }
+
+    const synth = window.speechSynthesis;
+    if (isSpeaking) {
+      synth.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const utterance = new window.SpeechSynthesisUtterance("马");
+    utterance.lang = "zh-CN";
+    utterance.rate = 0.6;
+    utterance.pitch = 1;
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+      setPlayed(true);
+      setTimeout(() => setPlayed(false), 900);
+    };
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    speechRef.current = utterance;
+    synth.cancel();
+    synth.speak(utterance);
+  };
 
   return (
     <div className="space-y-10">
@@ -59,7 +106,18 @@ function HomePage() {
                 <p>🧠 Объясни значение</p>
                 <p>📱 Опубликуй с тегом #КитайскоеОблако</p>
               </div>
-              <Button variant="ghost" className="mt-2" type="button" onClick={() => navigate("/campaign/chinese-month")}>
+              <Button
+                variant="ghost"
+                className="mt-2"
+                type="button"
+                onClick={() => {
+                  if (!viewerId) {
+                    navigate("/login");
+                    return;
+                  }
+                  navigate("/campaign/chinese-month");
+                }}
+              >
                 🚀 Участвовать
               </Button>
             </div>
@@ -76,6 +134,8 @@ function HomePage() {
                 ? "cursor-pointer ring-2 ring-fuchsia-400/70"
                 : item.text === "Быстрый результат"
                   ? "cursor-pointer ring-2 ring-amber-400/80"
+                  : item.text === "PK-баттл"
+                    ? "cursor-pointer ring-2 ring-emerald-400/80"
                   : item.text === "Мини-группы"
                     ? "cursor-pointer ring-2 ring-sky-400/80"
                     : ""
@@ -101,15 +161,46 @@ function HomePage() {
                 <p className="font-bold">{item.text}</p>
                 <p className="mt-1 text-xs font-black text-amber-700">Тест уровня →</p>
               </button>
-            ) : item.text === "Мини-группы" ? (
+            ) : item.text === "PK-баттл" ? (
               <button
                 type="button"
                 className="w-full rounded-2xl p-1 transition hover:scale-[1.03] active:scale-[0.97]"
-                onClick={() => navigate("/funnel/group-success")}
+                onClick={() => navigate("/pk-arena")}
               >
                 <p className="mb-2 text-3xl">{item.icon}</p>
                 <p className="font-bold">{item.text}</p>
-                <p className="mt-1 text-xs font-black text-sky-800">Группа → пробный урок →</p>
+                <p className="mt-1 text-xs font-black text-emerald-700">Игра + ставки депозита между участниками →</p>
+              </button>
+            ) : item.text === "Мини-группы" ? (
+              <button
+                type="button"
+                disabled={miniJoining}
+                className="w-full rounded-2xl p-1 transition hover:scale-[1.03] active:scale-[0.97] disabled:cursor-wait disabled:opacity-65"
+                onClick={async () => {
+                  setMiniGroupError("");
+                  if (!viewerId) {
+                    navigate("/login");
+                    return;
+                  }
+                  setMiniJoining(true);
+                  const res = await joinRandomMotivationGroup(viewerId);
+                  setMiniJoining(false);
+                  if (!res.ok) {
+                    if (res.error === "supabase_disabled") {
+                      navigate("/funnel/group-success");
+                      return;
+                    }
+                    setMiniGroupError(
+                      res.error === "login_required" ? "Сначала войди в аккаунт." : "Не удалось подобрать группу. Попробуй ещё раз.",
+                    );
+                    return;
+                  }
+                  navigate("/learning/group-dashboard");
+                }}
+              >
+                <p className="mb-2 text-3xl">{item.icon}</p>
+                <p className="font-bold">{item.text}</p>
+                <p className="mt-1 text-xs font-black text-sky-800">Случайный матч соучеников 🤝</p>
               </button>
             ) : (
               <>
@@ -120,6 +211,9 @@ function HomePage() {
           </Card>
         ))}
       </section>
+      {miniGroupError ? (
+        <p className="-mt-2 rounded-xl bg-rose-50 px-3 py-2 text-center text-sm font-bold text-rose-700">{miniGroupError}</p>
+      ) : null}
 
       <section className="grid gap-6 lg:grid-cols-[2fr,3fr]">
         <Card className="space-y-4">
@@ -134,12 +228,9 @@ function HomePage() {
           <Button
             variant="secondary"
             className="w-fit bounce-soft"
-            onClick={() => {
-              setPlayed(true);
-              setTimeout(() => setPlayed(false), 900);
-            }}
+            onClick={handleListenWord}
           >
-            ▶ Слушать
+            {isSpeaking ? "⏹ Остановить" : "▶ Слушать"}
           </Button>
           {played ? <p className="animate-pop text-sm font-extrabold text-green-600">Круто! +5 XP за повторение 🔥</p> : null}
         </Card>
@@ -149,9 +240,33 @@ function HomePage() {
           <Link
             to="/campaign/chinese-month"
             className="mt-4 block rounded-2xl bg-white p-4 font-semibold transition hover:scale-[1.01]"
+            onClick={(e) => {
+              if (!viewerId) {
+                e.preventDefault();
+                navigate("/login");
+              }
+            }}
           >
             Месяц китайского языка 🇨🇳 - Напиши свой первый китайский и выиграй приз 🎁
           </Link>
+        </Card>
+      </section>
+
+      <section aria-label="Раздел в разработке">
+        <h2 className="mb-4 fun-title">Новые возможности</h2>
+        <Card className="relative overflow-hidden border-2 border-dashed border-slate-300/90 bg-gradient-to-br from-slate-50 via-white to-brand-yellow/15 p-8 text-center shadow-inner">
+          <div className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-brand-blue/15" />
+          <div className="pointer-events-none absolute -bottom-10 left-6 h-28 w-28 rounded-full bg-brand-red/10" />
+          <p className="relative text-xs font-black uppercase tracking-[0.22em] text-slate-500">Функционал в работе</p>
+          <p className="relative mt-4 text-balance text-3xl font-black tracking-tight text-slate-800 sm:text-4xl lg:text-5xl">
+            Следите за обновлениями
+          </p>
+          <p className="relative mx-auto mt-3 max-w-lg text-base font-bold text-slate-600">
+            Здесь скоро появится новый режим обучения и мотивации. Мы анонсируем его на главной и в разделе «Обучение» ☁️
+          </p>
+          <span className="relative mt-6 inline-flex rounded-full border border-slate-200 bg-white/90 px-5 py-2 text-xs font-black text-slate-500 shadow-sm">
+            🛠 Скоро откроем доступ
+          </span>
         </Card>
       </section>
     </div>

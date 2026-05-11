@@ -1,17 +1,47 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Card from "../components/Card";
 import DailyCheckIn from "../components/DailyCheckIn";
 import ProgressBar from "../components/ProgressBar";
 import TaskCard from "../components/TaskCard";
-import { leaderboard, tasks } from "../data/mockData";
+import { useAuth } from "../context/AuthContext";
+import { authLogout } from "../services/authLogout";
+import { PAYMENTS_ENABLED } from "../config/payments";
+import { isGroupJoined } from "../services/groupMembership";
+import { getAvatarForLevel, getChengyuForLevel, getLevelFromXp, getNextLevelRewardText, getRewardForLevel } from "../services/levelSystem";
+import {
+  claimTaskReward,
+  fetchActiveTasks,
+  fetchLeaderboard,
+  fetchTaskClaimsForDate,
+  getMoscowDateKey,
+} from "../services/appDataService";
+import { hasActiveSubscription } from "../services/subscriptionAccess";
+import { resolveSubscriptionPlan } from "../services/subscriptionPlans";
 
-const levels = [
-  { id: 1, title: "Beginner 🌱", targetXp: 120 },
-  { id: 2, title: "Starter 🚀", targetXp: 260 },
-  { id: 3, title: "Learner 📚", targetXp: 500 },
-  { id: 4, title: "Speaker 🗣", targetXp: 820 },
-  { id: 5, title: "Master 🏆", targetXp: 1200 },
-];
+const GUEST_PROFILE_STORAGE_KEY = "mandarinPlayGuestProfile";
+const DEFAULT_GUEST_PROFILE = {
+  username: "Гость",
+  exp: 0,
+  level: 1,
+  dailyXp: 120,
+};
+
+function readGuestProfile() {
+  try {
+    const raw = window.localStorage.getItem(GUEST_PROFILE_STORAGE_KEY);
+    if (!raw) return DEFAULT_GUEST_PROFILE;
+    const parsed = JSON.parse(raw);
+    return {
+      username: typeof parsed.username === "string" && parsed.username.trim() ? parsed.username.trim() : DEFAULT_GUEST_PROFILE.username,
+      exp: Number.isFinite(parsed.exp) ? Math.max(0, parsed.exp) : DEFAULT_GUEST_PROFILE.exp,
+      level: Number.isFinite(parsed.level) ? Math.max(1, parsed.level) : DEFAULT_GUEST_PROFILE.level,
+      dailyXp: Number.isFinite(parsed.dailyXp) ? Math.max(0, parsed.dailyXp) : DEFAULT_GUEST_PROFILE.dailyXp,
+    };
+  } catch (_error) {
+    return DEFAULT_GUEST_PROFILE;
+  }
+}
 
 const xpWays = [
   { label: "Пройти урок", xp: 50 },
@@ -20,67 +50,151 @@ const xpWays = [
   { label: "Участвовать в активности", xp: 100 },
 ];
 
-const readSessionUser = () => {
-  try {
-    const raw = localStorage.getItem("authSession");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-};
-
 function ProfileDashboard() {
-  const [currentUser, setCurrentUser] = useState(() => readSessionUser());
-
+  const navigate = useNavigate();
+  const { user, profile, setProfile } = useAuth();
   const [rewardPopup, setRewardPopup] = useState("");
-  const [avatar, setAvatar] = useState(currentUser?.avatar || "😎");
-  const [xp, setXp] = useState(320);
-  const [dailyXp, setDailyXp] = useState(120);
-  const [streak] = useState(12);
+  const [guestProfile, setGuestProfile] = useState(() => readGuestProfile());
+  const [xp, setXp] = useState(profile?.exp ?? guestProfile.exp);
+  const [dailyXp, setDailyXp] = useState(guestProfile.dailyXp);
   const [levelUpPopup, setLevelUpPopup] = useState("");
-  const [welcomePopup, setWelcomePopup] = useState(false);
-  const username = currentUser?.username || "Гость";
+  const [savingXp, setSavingXp] = useState(false);
+  const [syncError, setSyncError] = useState("");
+  const [hasJoinedGroup, setHasJoinedGroup] = useState(false);
+  const [tasks, setTasks] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const username = profile?.username || user?.email || guestProfile.username;
+  const isLoggedIn = Boolean(user?.id);
+  const totalLoginDays = isLoggedIn ? Number(profile?.login_days ?? 0) : 0;
+  const guestXpBlockedMessage = "XP доступен только после входа в аккаунт.";
 
   useEffect(() => {
-    if (sessionStorage.getItem("welcomeAfterAuth") === "1") {
-      setWelcomePopup(true);
-      sessionStorage.removeItem("welcomeAfterAuth");
-      window.setTimeout(() => setWelcomePopup(false), 1800);
-      setCurrentUser(readSessionUser());
+    if (isLoggedIn) {
+      setXp(profile?.exp ?? 0);
+      setDailyXp(DEFAULT_GUEST_PROFILE.dailyXp);
+      return;
     }
-  }, []);
+
+    const guestState = readGuestProfile();
+    setGuestProfile(guestState);
+    setXp(guestState.exp);
+    setDailyXp(guestState.dailyXp);
+  }, [isLoggedIn, profile?.exp]);
 
   useEffect(() => {
-    if (currentUser?.avatar) setAvatar(currentUser.avatar);
-  }, [currentUser]);
+    const syncJoinedState = () => {
+      if (!user?.id) {
+        setHasJoinedGroup(false);
+        return;
+      }
+      isGroupJoined(user.id).then((joined) => setHasJoinedGroup(Boolean(joined)));
+    };
+    syncJoinedState();
+    window.addEventListener("focus", syncJoinedState);
+    return () => {
+      window.removeEventListener("focus", syncJoinedState);
+    };
+  }, [user?.id]);
 
-  const currentLevelIndex = useMemo(() => {
-    for (let i = 0; i < levels.length; i += 1) {
-      if (xp < levels[i].targetXp) return i;
+  useEffect(() => {
+    let isMounted = true;
+    const loadProfileData = async () => {
+      const [tasksResult, leaderboardResult, claimsResult] = await Promise.all([
+        fetchActiveTasks(),
+        fetchLeaderboard(10),
+        user?.id ? fetchTaskClaimsForDate(user.id, getMoscowDateKey()) : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (!isMounted) return;
+
+      if (!tasksResult.error) {
+        const claimedSet = new Set((claimsResult.data || []).map((item) => item.task_id));
+        const normalizedTasks = (tasksResult.data || []).map((task) => ({
+          id: task.id,
+          title: task.title,
+          points: Number(task.points || 0),
+          done: claimedSet.has(task.id),
+        }));
+        setTasks(normalizedTasks);
+      }
+
+      if (!leaderboardResult.error) {
+        setLeaderboard(
+          (leaderboardResult.data || []).map((entry, index) => ({
+            id: entry.user_id || `${index + 1}`,
+            name: entry.username || `Игрок ${index + 1}`,
+            points: Number(entry.points || 0),
+          })),
+        );
+      }
+    };
+    loadProfileData();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, xp]);
+
+  const levelState = useMemo(() => getLevelFromXp(xp), [xp]);
+  const currentLevel = levelState.level;
+  const nextTarget = levelState.nextLevelXpTarget;
+  const progressValue = levelState.progress;
+  const nextRewardText = getNextLevelRewardText(currentLevel);
+  const currentAvatar = getAvatarForLevel(currentLevel);
+  const levelChengyu = getChengyuForLevel(currentLevel);
+
+  const claimReward = async (task) => {
+    if (savingXp) return;
+    setSyncError("");
+    if (!user?.id) {
+      setSyncError(guestXpBlockedMessage);
+      return;
     }
-    return levels.length - 1;
-  }, [xp]);
+    if (task?.done) {
+      setSyncError("Эта награда уже получена сегодня.");
+      return;
+    }
 
-  const currentLevel = levels[Math.max(0, currentLevelIndex)];
-  const previousTarget = currentLevelIndex === 0 ? 0 : levels[currentLevelIndex - 1].targetXp;
-  const nextTarget = currentLevel.targetXp;
-  const progressValue = Math.min(100, Math.round(((xp - previousTarget) / (nextTarget - previousTarget)) * 100));
-  const nextRewardText = currentLevelIndex < levels.length - 1 ? "Новый аватар + бонусный урок 🎁" : "Максимальный ранг открыт";
-
-  const claimReward = (points) => {
+    const points = Number(task?.points || 0);
     const beforeXp = xp;
     const newXp = beforeXp + points;
-    setXp(newXp);
-    setDailyXp((prev) => prev + points);
-    setRewardPopup(`+${points} XP ⚡`);
-    setTimeout(() => setRewardPopup(""), 900);
+    const beforeLevel = getLevelFromXp(beforeXp).level;
+    const afterState = getLevelFromXp(newXp);
+    const computedLevel = afterState.level;
 
-    const beforeLevel = levels.findIndex((level) => beforeXp < level.targetXp);
-    const afterLevel = levels.findIndex((level) => newXp < level.targetXp);
-    if (afterLevel > beforeLevel && afterLevel >= 0) {
-      setLevelUpPopup(`Ты достиг Lv.${afterLevel + 1}!`);
-      setTimeout(() => setLevelUpPopup(""), 1800);
+    try {
+      setSavingXp(true);
+      const { data: updatedProfile, error } = await claimTaskReward({
+        userId: user.id,
+        taskId: task.id,
+        points,
+        currentExp: beforeXp,
+        currentLevel: computedLevel,
+      });
+      if (error) throw error;
+      if (!updatedProfile) throw new Error("Профиль пользователя не найден или недоступен.");
+
+      setXp(updatedProfile.exp ?? newXp);
+      setProfile(updatedProfile);
+      setDailyXp((prev) => prev + points);
+      setTasks((prev) => prev.map((item) => (item.id === task.id ? { ...item, done: true } : item)));
+      setRewardPopup(`+${points} XP ⚡`);
+      setTimeout(() => setRewardPopup(""), 900);
+
+      const appliedLevel = getLevelFromXp(updatedProfile.exp ?? newXp).level;
+      if (appliedLevel > beforeLevel) {
+        const unlockedReward = getRewardForLevel(appliedLevel);
+        setLevelUpPopup(`Ты достиг Lv.${appliedLevel}! Награда: ${unlockedReward}`);
+        setTimeout(() => setLevelUpPopup(""), 1800);
+      }
+    } catch (error) {
+      setSyncError(error.message || "Не удалось сохранить XP");
+    } finally {
+      setSavingXp(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await authLogout();
+    navigate("/login");
   };
 
   return (
@@ -100,30 +214,52 @@ function ProfileDashboard() {
           </div>
         </div>
       ) : null}
-      {welcomePopup ? (
-        <div className="fixed left-1/2 top-20 z-[60] -translate-x-1/2 animate-pop rounded-2xl bg-emerald-500 px-5 py-3 text-center font-black text-white shadow-xl">
-          🎉 Добро пожаловать!
-        </div>
-      ) : null}
-
       <Card className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="group grid h-20 w-20 place-items-center rounded-full bg-gradient-to-r from-fuchsia-500 to-pink-500 text-4xl shadow-lg">
-              <span className="transition group-hover:scale-110">{avatar}</span>
+            <div className="grid h-20 w-20 place-items-center rounded-full bg-gradient-to-r from-fuchsia-500 to-pink-500 text-4xl shadow-lg">
+              <span>{currentAvatar}</span>
             </div>
             <div>
               <p className="text-2xl font-black">{username}</p>
-              <p className="font-bold text-slate-600">Lv.{currentLevel.id} {currentLevel.title}</p>
+              <p className="font-bold text-slate-600">Lv.{currentLevel} | {levelChengyu}</p>
               <p className="text-sm font-semibold text-slate-500">Сегодня: +{dailyXp} XP 💰</p>
             </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {hasJoinedGroup ? (
+              <button
+                type="button"
+                onClick={() => navigate("/learning/group-dashboard")}
+                className="rounded-xl bg-brand-blue/15 px-4 py-2 text-sm font-black text-brand-blue transition hover:scale-105 active:scale-[0.97]"
+              >
+                👥 Войти в группу
+              </button>
+            ) : null}
+            {isLoggedIn ? (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-xl bg-rose-100 px-4 py-2 text-sm font-black text-rose-700 transition hover:scale-105 active:scale-[0.97]"
+              >
+                Выйти
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => navigate("/login")}
+                className="rounded-xl bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700 transition hover:scale-105 active:scale-[0.97]"
+              >
+                Войти
+              </button>
+            )}
           </div>
         </div>
 
         <div>
           <div className="mb-2 flex items-center justify-between text-sm font-bold text-slate-600">
             <span>XP: {xp} / {nextTarget}</span>
-            <span>До следующего уровня: {Math.max(nextTarget - xp, 0)} XP</span>
+            <span>До следующего уровня: {Math.max(levelState.xpToNextLevel - levelState.xpIntoLevel, 0)} XP</span>
           </div>
           <div className="h-4 w-full rounded-full bg-slate-200">
             <div
@@ -132,13 +268,16 @@ function ProfileDashboard() {
             />
           </div>
         </div>
-
+        {syncError ? <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{syncError}</p> : null}
+        {!isLoggedIn ? (
+          <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm font-bold text-amber-700">{guestXpBlockedMessage}</p>
+        ) : null}
       </Card>
 
       <section className="grid gap-4 md:grid-cols-3">
         <Card>
-          <p className="text-sm text-slate-500">Серия</p>
-          <p className="text-3xl font-black text-brand-red">{streak} дней 🔥</p>
+          <p className="text-sm text-slate-500">Всего дней входа</p>
+          <p className="text-3xl font-black text-brand-red">{totalLoginDays} 🔥</p>
         </Card>
         <Card>
           <p className="text-sm text-slate-500">Общий XP</p>
@@ -150,16 +289,47 @@ function ProfileDashboard() {
         </Card>
       </section>
 
+      {PAYMENTS_ENABLED ? (
+        <Card>
+          <h2 className="mb-2 text-xl font-extrabold">Подписка</h2>
+          <p className="font-semibold text-slate-700">
+            Статус: {hasActiveSubscription(profile) ? "active" : profile?.subscription_status || "inactive"}
+          </p>
+          <p className="text-sm font-semibold text-slate-600">
+            Текущий план: {profile?.subscription_plan ? resolveSubscriptionPlan(profile.subscription_plan).title : "не выбран"}
+          </p>
+          <p className="text-sm font-semibold text-slate-600">
+            Действует до:{" "}
+            {profile?.subscription_current_period_end
+              ? new Date(profile.subscription_current_period_end).toLocaleString()
+              : "нет даты"}
+          </p>
+        </Card>
+      ) : (
+        <Card>
+          <h2 className="mb-2 text-xl font-extrabold">Оплата</h2>
+          <p className="font-semibold text-slate-600">
+            Онлайн-оплата временно отключена — после получения ИНН и подключения эквайринга снова включим приём платежей.
+          </p>
+        </Card>
+      )}
+
       <section className="grid gap-6 lg:grid-cols-[2fr,3fr]">
         <Card>
-          <DailyCheckIn />
+          <DailyCheckIn allowRewards={isLoggedIn} checkInScopeKey={user?.id || "guest"} />
         </Card>
 
         <Card>
           <h2 className="mb-4 text-xl font-extrabold">Задачи дня (комбо-миссии)</h2>
           <div className="space-y-3">
             {tasks.map((task) => (
-              <TaskCard key={task.id} task={task} onClaim={claimReward} />
+              <TaskCard
+                key={task.id}
+                task={task}
+                onClaim={claimReward}
+                disabled={!isLoggedIn || task.done}
+                disabledHint={!isLoggedIn ? "Войди, чтобы забирать XP-награды." : ""}
+              />
             ))}
           </div>
         </Card>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Card from "../../components/Card";
 import { listUsers, updateUser } from "../../services/adminService";
+import { getLevelFromXp } from "../../services/levelSystem";
 
 function AdminUsersPage() {
   const [users, setUsers] = useState([]);
@@ -86,7 +87,10 @@ function AdminUsersPage() {
                     <button
                       type="button"
                       className="rounded-lg bg-amber-100 px-2 py-1 font-bold text-amber-700"
-                      onClick={() => patchUser(user.id, { exp: (user.exp ?? 0) + 50, level: Math.floor(((user.exp ?? 0) + 50) / 100) })}
+                      onClick={() => {
+                        const nextXp = (user.exp ?? 0) + 50;
+                        patchUser(user.id, { exp: nextXp, level: getLevelFromXp(nextXp).level });
+                      }}
                     >
                       +50 XP
                     </button>

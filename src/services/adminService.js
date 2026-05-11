@@ -1,5 +1,11 @@
 import { supabase } from "../lib/supabase";
 
+function pickFirstRowResult(result) {
+  if (!result) return result;
+  const data = Array.isArray(result.data) ? (result.data[0] ?? null) : result.data;
+  return { ...result, data };
+}
+
 export async function listUsers(search = "") {
   let query = supabase.from("users").select("id, username, email, level, exp, role, status, created_at").order("created_at", { ascending: false });
   if (search.trim()) {
@@ -9,7 +15,8 @@ export async function listUsers(search = "") {
 }
 
 export async function updateUser(id, payload) {
-  return supabase.from("users").update(payload).eq("id", id).select("id, username, email, level, exp, role, status, created_at").single();
+  const result = await supabase.from("users").update(payload).eq("id", id).select("id, username, email, level, exp, role, status, created_at").limit(1);
+  return pickFirstRowResult(result);
 }
 
 export async function listCourses() {
@@ -17,7 +24,8 @@ export async function listCourses() {
 }
 
 export async function upsertCourse(payload) {
-  return supabase.from("courses").upsert(payload).select("*").single();
+  const result = await supabase.from("courses").upsert(payload).select("*").limit(1);
+  return pickFirstRowResult(result);
 }
 
 export async function listEvents() {
@@ -25,7 +33,8 @@ export async function listEvents() {
 }
 
 export async function upsertEvent(payload) {
-  return supabase.from("events").upsert(payload).select("*").single();
+  const result = await supabase.from("events").upsert(payload).select("*").limit(1);
+  return pickFirstRowResult(result);
 }
 
 export async function listQuestionBank(category = "") {
@@ -37,7 +46,8 @@ export async function listQuestionBank(category = "") {
 }
 
 export async function upsertQuestion(payload) {
-  return supabase.from("question_bank").upsert(payload).select("*").single();
+  const result = await supabase.from("question_bank").upsert(payload).select("*").limit(1);
+  return pickFirstRowResult(result);
 }
 
 export async function listOrders(status = "") {
@@ -49,7 +59,8 @@ export async function listOrders(status = "") {
 }
 
 export async function updateOrder(id, payload) {
-  return supabase.from("orders").update(payload).eq("id", id).select("*").single();
+  const result = await supabase.from("orders").update(payload).eq("id", id).select("*").limit(1);
+  return pickFirstRowResult(result);
 }
 
 export async function funnelSummary(startDate, endDate) {

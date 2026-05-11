@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import Card from "../components/Card";
+import { PAYMENTS_ENABLED } from "../config/payments";
 import { trackFunnelStep } from "../services/funnelTracking";
 
 function FunnelOfferPage() {
@@ -32,17 +33,28 @@ function FunnelOfferPage() {
         <p className="font-black text-amber-700">🔥 Только для участников</p>
       </Card>
 
-      <Button
-        className="w-full"
-        size="lg"
-        type="button"
-        onClick={() => {
-          trackFunnelStep("payment_open");
-          navigate("/funnel/payment");
-        }}
-      >
-        🎓 Купить сейчас
-      </Button>
+      {PAYMENTS_ENABLED ? (
+        <Button
+          className="w-full"
+          size="lg"
+          type="button"
+          onClick={() => {
+            trackFunnelStep("payment_open");
+            navigate("/funnel/payment?plan=course_monthly");
+          }}
+        >
+          🎓 Купить сейчас
+        </Button>
+      ) : (
+        <div className="space-y-2">
+          <Button className="w-full" size="lg" type="button" disabled>
+            Оплата временно недоступна
+          </Button>
+          <p className="text-center text-sm font-semibold text-slate-500">
+            После ИНН и подключения эквайринга кнопку снова включим.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

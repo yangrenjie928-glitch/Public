@@ -1,9 +1,13 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Badge from "./Badge";
 import Button from "./Button";
 import Card from "./Card";
+import { useAuth } from "../context/AuthContext";
 
 function EventCard({ event }) {
+  const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  const viewerId = user?.id ?? profile?.id ?? null;
   const targetLink = event.link || `/events/${event.id}`;
 
   return (
@@ -24,7 +28,16 @@ function EventCard({ event }) {
             </Badge>
           ))}
         </div>
-        <Link to={targetLink} className="block">
+        <Link
+          to={targetLink}
+          className="block"
+          onClick={(e) => {
+            if (!viewerId) {
+              e.preventDefault();
+              navigate("/login");
+            }
+          }}
+        >
           <Button variant="secondary" className="w-full">
             Участвовать
           </Button>

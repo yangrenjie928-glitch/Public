@@ -1,91 +1,67 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { supabase } from "../lib/supabase";
+import AuthBrandHeader from "../components/auth/AuthBrandHeader";
+import AuthLayout from "../components/auth/AuthLayout";
+import EmailAuthForm from "../components/auth/EmailAuthForm";
+import PhoneAuthForm from "../components/auth/PhoneAuthForm";
+import SocialLoginButtons from "../components/auth/SocialLoginButtons";
 
-function LoginPage() {
-  const navigate = useNavigate();
-  const { isSupabaseEnabled } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setSubmitting(true);
-    setError("");
-    try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password
-      });
-      if (signInError) throw signInError;
-      navigate("/profile");
-    } catch (err) {
-      setError(err.message || "Не удалось выполнить вход");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
+function TabButton({ active, onClick, children }) {
   return (
-    <div className="mx-auto max-w-md">
-      <div className="rounded-3xl bg-white p-6 shadow-soft">
-        <h1 className="text-2xl font-black text-slate-900">Вход</h1>
-        <p className="mt-1 text-sm text-slate-500">Продолжай обучение с сохраненным прогрессом.</p>
-        {!isSupabaseEnabled ? (
-          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm font-bold text-amber-700">
-            Supabase не настроен. Добавь переменные окружения, чтобы включить вход.
-          </p>
-        ) : null}
-
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-          <label className="block">
-            <span className="mb-1 block text-sm font-bold text-slate-600">Электронная почта</span>
-            <input
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-fuchsia-500"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              placeholder="you@example.com"
-            />
-          </label>
-
-          <label className="block">
-            <span className="mb-1 block text-sm font-bold text-slate-600">Пароль</span>
-            <input
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-fuchsia-500"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              minLength={6}
-              placeholder="Твой пароль"
-            />
-          </label>
-
-          {error ? <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{error}</p> : null}
-
-          <button
-            type="submit"
-            disabled={submitting || !isSupabaseEnabled}
-            className="w-full rounded-xl bg-gradient-to-r from-brand-blue to-brand-red px-4 py-3 font-black text-white disabled:opacity-60"
-          >
-            {submitting ? "Входим..." : "Войти"}
-          </button>
-        </form>
-
-        <p className="mt-4 text-sm text-slate-600">
-          Нет аккаунта?{" "}
-          <Link className="font-black text-brand-blue hover:underline" to="/register">
-            Создать аккаунт
-          </Link>
-        </p>
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative flex-1 rounded-full py-4 text-base font-black transition sm:text-lg ${active ? "bg-white text-brand-blue shadow-lg ring-4 ring-brand-yellow/60" : "text-white/85 hover:bg-white/10"}`}
+    >
+      {children}
+    </button>
   );
 }
 
-export default LoginPage;
+export default function LoginPage() {
+  const [tab, setTab] = useState("phone");
+  const [banner, setBanner] = useState("");
+
+  const handleForgot = (emailDraft) => {
+    const trimmed = emailDraft?.trim?.() || "";
+    setBanner(trimmed ? `В демо: письмо на «${trimmed}» было бы отправлено — скоро с реальной почтой 🐼` : "Сначала введи email ✉️");
+  };
+
+  return (
+    <AuthLayout footerPrefix="Нет аккаунта?" footerLinkTo="/register" footerLinkLabel="Регистрация" footerHint="">
+      <AuthBrandHeader mode="login" />
+
+      {banner ? <p className="mb-4 rounded-2xl border-2 border-sky-200 bg-sky-50 px-4 py-3 text-center text-xs font-black text-sky-900">{banner}</p> : null}
+
+      <div className="mb-8 rounded-full bg-white/70 p-1.5 shadow-inner ring-4 ring-brand-blue/20 backdrop-blur sm:p-2">
+        <div className="flex gap-2 rounded-full bg-gradient-to-r from-brand-red via-orange-400 to-brand-blue p-1.5 sm:p-2">
+          <TabButton active={tab === "phone"} onClick={() => { setTab("phone"); setBanner(""); }}>
+            📱 Телефон
+          </TabButton>
+          <TabButton active={tab === "email"} onClick={() => { setTab("email"); setBanner(""); }}>
+            ✉️ Email
+          </TabButton>
+        </div>
+      </div>
+
+      <div className="rounded-[2rem] bg-white p-6 shadow-[0_20px_80px_-20px_rgba(59,130,246,.45)] ring-8 ring-brand-yellow/20 sm:p-10">
+        <div className="mb-8 flex items-center justify-center gap-6 text-xl font-black text-slate-500">
+          <span className="bounce-soft rounded-full bg-brand-yellow px-5 py-2 text-amber-950 shadow-md">⭐</span>
+          <span className="text-sm font-semibold uppercase tracking-widest text-slate-400">Ты здесь главный игрок 💪</span>
+          <span className="bounce-soft rounded-full bg-brand-red/90 px-4 py-2 text-white shadow-md" style={{ animationDelay: "0.4s" }}>
+            ❤️
+          </span>
+        </div>
+
+        {tab === "phone" ? <PhoneAuthForm /> : <EmailAuthForm onForgotPassword={handleForgot} />}
+      </div>
+
+      <div className="mx-auto mt-8 max-w-md rounded-[2rem] bg-white/90 p-6 shadow-xl ring-4 ring-brand-blue/10 backdrop-blur">
+        <SocialLoginButtons rememberMe />
+      </div>
+
+      <p className="mx-auto mt-6 max-w-md text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+        Авторизация в демо-режиме (без Supabase): пароль любой от 4 символов • SMS код 123456
+      </p>
+    </AuthLayout>
+  );
+}

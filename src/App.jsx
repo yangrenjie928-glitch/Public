@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import HomePage from "./pages/HomePage";
@@ -16,9 +16,14 @@ import FunnelTrialLessonPage from "./pages/FunnelTrialLessonPage";
 import FunnelEngagementPage from "./pages/FunnelEngagementPage";
 import FunnelOfferPage from "./pages/FunnelOfferPage";
 import FunnelPaymentPage from "./pages/FunnelPaymentPage";
+import CheckoutSuccessPage from "./pages/CheckoutSuccessPage";
+import CheckoutCancelPage from "./pages/CheckoutCancelPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
-import ProtectedRoute from "./components/auth/ProtectedRoute";
+import GroupDashboardPage from "./pages/GroupDashboardPage";
+import PersonalCustomPage from "./pages/PersonalCustomPage";
+import PremiumCustomPage from "./pages/PremiumCustomPage";
+import PkArenaPage from "./pages/PkArenaPage";
 import AdminRoute from "./components/auth/AdminRoute";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminOverviewPage from "./pages/admin/AdminOverviewPage";
@@ -28,17 +33,58 @@ import AdminEventsPage from "./pages/admin/AdminEventsPage";
 import AdminContentPage from "./pages/admin/AdminContentPage";
 import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
 import AdminFunnelPage from "./pages/admin/AdminFunnelPage";
+import { useAuth } from "./context/AuthContext";
 
 function App() {
+  const { loading } = useAuth();
   const location = useLocation();
   const [displayLocation, setDisplayLocation] = useState(location);
   const [transitionStage, setTransitionStage] = useState("page-enter");
+  const exitTimerRef = useRef(null);
+
+  const finishTransition = () => {
+    if (exitTimerRef.current) {
+      clearTimeout(exitTimerRef.current);
+      exitTimerRef.current = null;
+    }
+    setDisplayLocation(location);
+    setTransitionStage("page-enter");
+  };
 
   useEffect(() => {
     if (location.pathname !== displayLocation.pathname) {
       setTransitionStage("page-exit");
+      // Fallback: some browsers/user settings may skip animation events.
+      exitTimerRef.current = setTimeout(() => {
+        finishTransition();
+      }, 260);
     }
   }, [location, displayLocation]);
+
+  useEffect(() => {
+    return () => {
+      if (exitTimerRef.current) {
+        clearTimeout(exitTimerRef.current);
+      }
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Navbar />
+        <main className="container-main py-12">
+          <div className="mx-auto max-w-xl rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-soft">
+            <p className="text-sm font-bold text-slate-500">App Loading...</p>
+            <h1 className="mt-2 text-xl font-black text-slate-900">Загружаем данные аккаунта</h1>
+            <p className="mt-2 text-sm font-semibold text-slate-600">
+              Подготавливаем профиль и маршруты, чтобы страница открылась без сбоев.
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -48,8 +94,7 @@ function App() {
           className={transitionStage}
           onAnimationEnd={() => {
             if (transitionStage === "page-exit") {
-              setTransitionStage("page-enter");
-              setDisplayLocation(location);
+              finishTransition();
             }
           }}
         >
@@ -60,6 +105,10 @@ function App() {
             <Route path="/ai-practice" element={<AiPracticeGamePage />} />
             <Route path="/campaign/chinese-month" element={<CampaignChineseMonthPage />} />
             <Route path="/learning" element={<LearningPage />} />
+            <Route path="/learning/custom" element={<PersonalCustomPage />} />
+            <Route path="/learning/custom-premium" element={<PremiumCustomPage />} />
+            <Route path="/learning/group-dashboard" element={<GroupDashboardPage />} />
+            <Route path="/pk-arena" element={<PkArenaPage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
@@ -71,6 +120,8 @@ function App() {
             <Route path="/funnel/engagement" element={<FunnelEngagementPage />} />
             <Route path="/funnel/offer" element={<FunnelOfferPage />} />
             <Route path="/funnel/payment" element={<FunnelPaymentPage />} />
+            <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
+            <Route path="/checkout/cancel" element={<CheckoutCancelPage />} />
             <Route
               path="/admin"
               element={

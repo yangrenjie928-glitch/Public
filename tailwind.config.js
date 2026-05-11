@@ -26,10 +26,22 @@ export default {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-5px)" },
         },
+        "auth-shake": {
+          "0%, 100%": { transform: "translateX(0)" },
+          "25%": { transform: "translateX(-8px)" },
+          "75%": { transform: "translateX(8px)" },
+        },
+        "particle-drift": {
+          "0%": { transform: "translateY(0) translateX(0)", opacity: "0.4" },
+          "50%": { opacity: "0.85" },
+          "100%": { transform: "translateY(-28px) translateX(12px)", opacity: "0.35" },
+        },
       },
       animation: {
         pop: "pop 0.35s ease-out",
         float: "float 2.8s ease-in-out infinite",
+        "auth-shake": "auth-shake 0.45s ease-in-out",
+        "particle-drift": "particle-drift 5s ease-in-out infinite",
       },
     },
   },

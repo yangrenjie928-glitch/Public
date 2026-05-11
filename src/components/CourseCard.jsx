@@ -3,6 +3,7 @@ import Badge from "./Badge";
 import Button from "./Button";
 import Card from "./Card";
 import ProgressBar from "./ProgressBar";
+import { PAYMENTS_ENABLED } from "../config/payments";
 
 function CourseCard({
   course,
@@ -10,6 +11,9 @@ function CourseCard({
   to = "/learning",
   bannerLabel = "Целевой учебный трек",
   cardClassName = "",
+  onCtaClick,
+  secondaryCtaLabel = "",
+  onSecondaryCtaClick,
 }) {
   const tagColor = (tag) => {
     if (tag.includes("HSK")) return "blue";
@@ -40,9 +44,25 @@ function CourseCard({
           ))}
         </div>
         <ProgressBar value={course.progress} />
-        <Link to={to} className="block">
-          <Button className="w-full">{ctaLabel}</Button>
-        </Link>
+        {PAYMENTS_ENABLED && Number(course.price || 0) > 0 ? (
+          <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm font-black text-slate-700">
+            Цена: {Number(course.price)} ₽
+          </div>
+        ) : null}
+        {onCtaClick ? (
+          <Button className="w-full" onClick={onCtaClick}>
+            {ctaLabel}
+          </Button>
+        ) : (
+          <Link to={to} className="block">
+            <Button className="w-full">{ctaLabel}</Button>
+          </Link>
+        )}
+        {secondaryCtaLabel && onSecondaryCtaClick ? (
+          <Button className="w-full" variant="ghost" onClick={onSecondaryCtaClick}>
+            {secondaryCtaLabel}
+          </Button>
+        ) : null}
       </div>
     </Card>
   );

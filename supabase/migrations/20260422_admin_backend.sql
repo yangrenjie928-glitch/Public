@@ -1,6 +1,18 @@
 -- Core admin backend schema and RLS policies
 create extension if not exists "pgcrypto";
 
+create table if not exists public.users (
+  id uuid primary key references auth.users(id) on delete cascade,
+  username text not null check (char_length(trim(username)) > 0),
+  email text not null unique,
+  level integer not null default 0 check (level >= 0),
+  exp integer not null default 0 check (exp >= 0),
+  role text not null default 'user',
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table if exists public.users
   add column if not exists role text not null default 'user',
   add column if not exists status text not null default 'active',
@@ -93,6 +105,13 @@ on public.users
 for update
 to authenticated
 using (auth.uid() = id or exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin'))
+with check (auth.uid() = id or exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin'));
+
+drop policy if exists "users_insert_self_or_admin" on public.users;
+create policy "users_insert_self_or_admin"
+on public.users
+for insert
+to authenticated
 with check (auth.uid() = id or exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin'));
 
 drop policy if exists "admin_manage_courses" on public.courses;

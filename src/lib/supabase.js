@@ -63,6 +63,10 @@ export const supabase = isSupabaseEnabled
           }
         }),
         signInWithPassword: missingConfigResult,
+        signInWithOAuth: missingConfigResult,
+        signInWithOtp: missingConfigResult,
+        verifyOtp: missingConfigResult,
+        resetPasswordForEmail: missingConfigResult,
         signUp: missingConfigResult,
         signOut: async () => ({ error: null })
       },

@@ -1,47 +1,47 @@
 import animeSpring from "../assets/events/anime-spring.svg";
-import animeSpeak from "../assets/events/anime-speak.svg";
-import animeWinter from "../assets/events/anime-winter.svg";
 import courseBasic from "../assets/courses/anime-course-basic.svg";
-import courseBusiness from "../assets/courses/anime-course-business.svg";
+import courseAdvanced from "../assets/courses/anime-course-advanced.svg";
+import coursePersonal from "../assets/courses/anime-course-personal.svg";
 import courseTravel from "../assets/courses/anime-course-travel.svg";
+import courseTrial from "../assets/courses/anime-course-trial.svg";
 
 export const courses = [
   {
     id: 1,
-    image: courseBasic,
-    titleRu: "Базовый китайский",
-    titleZh: "基础汉语",
-    tags: ["HSK1", "Разговорный"],
-    progress: 35,
+    image: coursePersonal,
+    titleRu: "Персональная настройка курса",
+    titleZh: "个性定制",
+    tags: ["Индивидуально", "Персональный план"],
+    progress: 20,
     level: "A1",
-    type: "Разговорный",
+    type: "Персональный",
   },
   {
     id: 2,
-    image: courseBusiness,
-    titleRu: "Китайский для работы",
-    titleZh: "商务汉语",
-    tags: ["HSK2", "Бизнес"],
-    progress: 62,
+    image: courseAdvanced,
+    titleRu: "Продвинутая персональная настройка",
+    titleZh: "高级定制",
+    tags: ["Премиум", "Глубокая настройка"],
+    progress: 45,
     level: "A2",
-    type: "Бизнес",
+    type: "Продвинутый",
   },
   {
     id: 3,
     image: courseTravel,
-    titleRu: "Путешествие по Китаю",
-    titleZh: "旅行汉语",
-    tags: ["HSK1", "Разговорный"],
-    progress: 18,
+    titleRu: "Групповой курс 4-6 человек",
+    titleZh: "小组课程（4-6人）",
+    tags: ["Мини-группа", "4-6 человек"],
+    progress: 10,
     level: "HSK",
-    type: "Разговорный",
+    type: "Групповой",
   },
 ];
 
 /** Бесплатный пробный урок — всегда показывается в каталоге (вне фильтров). */
 export const trialLesson = {
   id: "trial-free",
-  image: courseBasic,
+  image: courseTrial,
   titleRu: "Бесплатный пробный урок",
   titleZh: "免费试听",
   tags: ["Бесплатно", "Пробный урок", "20 мин"],
@@ -59,30 +59,6 @@ export const events = [
     countdown: "Только в этом месяце",
     rewards: ["Таинственный приз", "Бонусы", "Бесплатные уроки"],
     link: "/campaign/chinese-month",
-  },
-  {
-    id: "spring-hsk",
-    title: "Весенний HSK Челлендж",
-    image: animeSpring,
-    status: "Активные",
-    countdown: "2 дня 14 часов",
-    rewards: ["₽100", "Бесплатный урок", "ТОП бонус"],
-  },
-  {
-    id: "speak-7-days",
-    title: "Говори за 7 дней",
-    image: animeSpeak,
-    status: "Активные",
-    countdown: "5 дней 02 часа",
-    rewards: ["₽100", "Бесплатный урок"],
-  },
-  {
-    id: "winter-race",
-    title: "Зимняя гонка",
-    image: animeWinter,
-    status: "Завершённые",
-    countdown: "Завершено",
-    rewards: ["Сертификат"],
   },
 ];
 

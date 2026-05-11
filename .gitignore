@@ -6,3 +6,5 @@ dist
 backend/node_modules
 node.exe
 node-*.msi
+.vercel
+supabase/.temp/

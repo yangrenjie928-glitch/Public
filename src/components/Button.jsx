@@ -23,7 +23,7 @@ function Button({
 
   return (
     <button
-      className={`rounded-2xl font-extrabold tracking-wide transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.02] active:scale-95 ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`rounded-2xl font-extrabold tracking-wide transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:scale-100 ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
     >
       {children}
