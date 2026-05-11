@@ -22,7 +22,7 @@ $DEPLOY_PATH = $null
 $DEPLOY_SSH_PORT = $null
 
 foreach ($line in Get-Content $envFile -Encoding UTF8) {
-  $t = $line.Trim()
+  $t = $line.TrimStart([char]0xFEFF).Trim()
   if ($t.StartsWith('#') -or $t.Length -eq 0) { continue }
   if ($t -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') {
     switch ($Matches[1]) {
@@ -39,18 +39,7 @@ if (-not $DEPLOY_HOST -or -not $DEPLOY_USER -or -not $DEPLOY_PATH) {
   exit 1
 }
 
-$placeholderHosts = @('123.45.67.89', 'YOUR_VM_IP_OR_HOSTNAME', 'changeme.example.com')
-if ($placeholderHosts -contains $DEPLOY_HOST) {
-  Write-Host @"
-
-DEPLOY_HOST is still an example placeholder.
-Edit deployment.env and set your real VM IP or DNS name (what works with ssh), then:
-
-  npm run deploy:vm
-
-"@ -ForegroundColor Yellow
-  exit 2
-}
+Write-Host "[deploy] Using DEPLOY_HOST=$DEPLOY_HOST  USER=$DEPLOY_USER  PATH=$DEPLOY_PATH" -ForegroundColor DarkGray
 
 Write-Host "[deploy] npm run build" -ForegroundColor Cyan
 npm run build
