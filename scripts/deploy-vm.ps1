@@ -20,6 +20,7 @@ $DEPLOY_HOST = $null
 $DEPLOY_USER = $null
 $DEPLOY_PATH = $null
 $DEPLOY_SSH_PORT = $null
+$DEPLOY_USE_SUDO = $null
 
 foreach ($line in Get-Content $envFile -Encoding UTF8) {
   $t = $line.TrimStart([char]0xFEFF).Trim()
@@ -30,6 +31,7 @@ foreach ($line in Get-Content $envFile -Encoding UTF8) {
       'DEPLOY_USER' { $DEPLOY_USER = $Matches[2].Trim() }
       'DEPLOY_PATH' { $DEPLOY_PATH = $Matches[2].Trim() }
       'DEPLOY_SSH_PORT' { $DEPLOY_SSH_PORT = $Matches[2].Trim() }
+      'DEPLOY_USE_SUDO' { $DEPLOY_USE_SUDO = $Matches[2].Trim() }
     }
   }
 }
@@ -39,7 +41,12 @@ if (-not $DEPLOY_HOST -or -not $DEPLOY_USER -or -not $DEPLOY_PATH) {
   exit 1
 }
 
-Write-Host "[deploy] Using DEPLOY_HOST=$DEPLOY_HOST  USER=$DEPLOY_USER  PATH=$DEPLOY_PATH" -ForegroundColor DarkGray
+$useSudo = $false
+if ($DEPLOY_USE_SUDO -and $DEPLOY_USE_SUDO -match '^(1|true|yes|on)$') {
+  $useSudo = $true
+}
+
+Write-Host "[deploy] Using DEPLOY_HOST=$DEPLOY_HOST  USER=$DEPLOY_USER  PATH=$DEPLOY_PATH  SUDO=$useSudo" -ForegroundColor DarkGray
 
 Write-Host "[deploy] npm run build" -ForegroundColor Cyan
 npm run build
@@ -77,10 +84,20 @@ if ($DEPLOY_SSH_PORT -and $DEPLOY_SSH_PORT.Trim().Length -gt 0) {
 }
 
 Write-Host "[deploy] prepare remote: $remoteBase (ssh)" -ForegroundColor Cyan
-$prep = "set -e; mkdir -p '$remoteBase'; chmod 755 '$remoteBase' 2>/dev/null || true; rm -rf '$remoteBase'/*"
+if ($useSudo) {
+  $prep = "set -e; sudo mkdir -p '$remoteBase'; sudo chmod 755 '$remoteBase' 2>/dev/null || true; sudo bash -c `"rm -rf '$remoteBase'/*`""
+} else {
+  $prep = "set -e; mkdir -p '$remoteBase'; chmod 755 '$remoteBase' 2>/dev/null || true; bash -c `"rm -rf '$remoteBase'/*`""
+}
 & $sshExe @sshOpts $sshTarget $prep
 if ($LASTEXITCODE -ne 0) {
   Write-Host "ssh prepare failed ($LASTEXITCODE)." -ForegroundColor Red
+  Write-Host @"
+Hint: many VPS images forbid SSH as root. Use the image default user (often ubuntu) and sudo:
+  DEPLOY_USER=ubuntu
+  DEPLOY_USE_SUDO=true
+Ensure that user can sudo without a password (cloud image default) or run deploy from an interactive session.
+"@ -ForegroundColor Yellow
   exit $LASTEXITCODE
 }
 
@@ -88,10 +105,15 @@ $distDir = Join-Path $root "dist"
 Write-Host "[deploy] upload dist via tar|ssh (avoids scp + noisy .bashrc)" -ForegroundColor Cyan
 Push-Location $distDir
 try {
-  $extract = "tar xf - -C '$remoteBase'"
+  if ($useSudo) {
+    $extract = "sudo tar xf - -C '$remoteBase'"
+  } else {
+    $extract = "tar xf - -C '$remoteBase'"
+  }
   & tar.exe -cf - . | & $sshExe @sshOpts $sshTarget $extract
   if ($LASTEXITCODE -ne 0) {
     Write-Host "ssh/tar upload failed ($LASTEXITCODE)." -ForegroundColor Red
+    Write-Host "Same hint as prepare: try DEPLOY_USER=ubuntu plus DEPLOY_USE_SUDO=true if root SSH is blocked." -ForegroundColor Yellow
     exit $LASTEXITCODE
   }
 } finally {
