@@ -1,4 +1,4 @@
-# Deploy Vite build to VM via scp (nginx root: see china-cloud.nginx.conf)
+# Deploy Vite build: tar stream over ssh (scp breaks when remote shell prints MOTD; nginx root: china-cloud.nginx.conf)
 $ErrorActionPreference = "Stop"
 try {
   if ([Console]::OutputEncoding.CodePage -ne 65001) {
@@ -54,33 +54,48 @@ if (-not (Get-ChildItem "$root/dist" -Force | Select-Object -First 1)) {
 }
 
 $windir = if ($env:SYSTEMROOT) { $env:SYSTEMROOT } else { 'C:\WINDOWS' }
-$scpExe = Join-Path $windir 'System32\OpenSSH\scp.exe'
-if (-not (Test-Path $scpExe)) {
-  Write-Host "OpenSSH scp not found: $scpExe (enable OpenSSH Client in Windows)." -ForegroundColor Red
+$sshExe = Join-Path $windir 'System32\OpenSSH\ssh.exe'
+if (-not (Test-Path $sshExe)) {
+  Write-Host "OpenSSH ssh not found: $sshExe" -ForegroundColor Red
   exit 1
 }
 
-$distGlob = Join-Path $root "dist\*"
-$target = "{0}@{1}:{2}/" -f $DEPLOY_USER, $DEPLOY_HOST, ($DEPLOY_PATH.TrimEnd('/') -replace '\\','/')
-
-Write-Host "[deploy] scp -> $target" -ForegroundColor Cyan
-
-$scpArgs = @(
-  '-o', 'ConnectTimeout=25',
-  '-o', 'StrictHostKeyChecking=accept-new',
-  '-r',
-  $distGlob,
-  $target
-)
-if ($DEPLOY_SSH_PORT -and $DEPLOY_SSH_PORT.Trim().Length -gt 0) {
-  $scpArgs = @('-P', $DEPLOY_SSH_PORT.Trim()) + $scpArgs
+if (-not (Get-Command tar.exe -ErrorAction SilentlyContinue)) {
+  Write-Host "Windows tar.exe not found (need Windows 10+). Install tar or use WSL." -ForegroundColor Red
+  exit 1
 }
 
-& $scpExe @scpArgs
+$remoteBase = ($DEPLOY_PATH.TrimEnd('/') -replace '\\', '/')
+$sshTarget = "{0}@{1}" -f $DEPLOY_USER, $DEPLOY_HOST
 
+$sshOpts = @(
+  '-o', 'ConnectTimeout=30',
+  '-o', 'StrictHostKeyChecking=accept-new'
+)
+if ($DEPLOY_SSH_PORT -and $DEPLOY_SSH_PORT.Trim().Length -gt 0) {
+  $sshOpts = @('-p', $DEPLOY_SSH_PORT.Trim()) + $sshOpts
+}
+
+Write-Host "[deploy] prepare remote: $remoteBase (ssh)" -ForegroundColor Cyan
+$prep = "set -e; mkdir -p '$remoteBase'; chmod 755 '$remoteBase' 2>/dev/null || true; rm -rf '$remoteBase'/*"
+& $sshExe @sshOpts $sshTarget $prep
 if ($LASTEXITCODE -ne 0) {
-  Write-Host "scp exited with $LASTEXITCODE — check SSH key, user, path on server." -ForegroundColor Red
+  Write-Host "ssh prepare failed ($LASTEXITCODE)." -ForegroundColor Red
   exit $LASTEXITCODE
+}
+
+$distDir = Join-Path $root "dist"
+Write-Host "[deploy] upload dist via tar|ssh (avoids scp + noisy .bashrc)" -ForegroundColor Cyan
+Push-Location $distDir
+try {
+  $extract = "tar xf - -C '$remoteBase'"
+  & tar.exe -cf - . | & $sshExe @sshOpts $sshTarget $extract
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "ssh/tar upload failed ($LASTEXITCODE)." -ForegroundColor Red
+    exit $LASTEXITCODE
+  }
+} finally {
+  Pop-Location
 }
 
 Write-Host "[deploy] Done. Open https://china-cloud.ru (hard refresh / cache)." -ForegroundColor Green
